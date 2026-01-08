@@ -525,3 +525,91 @@ These must not be implemented in this version.
   - Who consumes
   - Where surplus or deficit goes
 - Interactive toggles affect house load and flows
+
+---
+
+## 15. Deployment
+
+### 15.1 Production Environment
+
+| Component | Value |
+|-----------|-------|
+| Server | LEG-Configurator (Debian 13) |
+| URL | https://provision.dhamstack.com:8051 |
+| Internal Port | 8050 (Dash app) |
+| External Port | 8051 (nginx with SSL) |
+| SSL Certificate | Let's Encrypt (auto-renewal via certbot) |
+
+### 15.2 Architecture
+
+```
+Internet
+    │
+    ▼
+┌─────────────────────────────────────┐
+│  nginx (port 8051, SSL)             │
+│  SSL: /etc/letsencrypt/live/        │
+│        provision.dhamstack.com/     │
+└─────────────────────────────────────┘
+    │
+    ▼ proxy_pass
+┌─────────────────────────────────────┐
+│  Dash App (port 8050, localhost)    │
+│  /root/LEG-Simulator/app.py         │
+└─────────────────────────────────────┘
+```
+
+### 15.3 nginx Configuration
+
+Location: `/etc/nginx/sites-available/provision.dhamstack.com`
+
+```nginx
+server {
+    listen 8051 ssl;
+    server_name provision.dhamstack.com;
+
+    ssl_certificate /etc/letsencrypt/live/provision.dhamstack.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/provision.dhamstack.com/privkey.pem;
+
+    location / {
+        proxy_pass http://127.0.0.1:8050;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+```
+
+### 15.4 Service Management
+
+Start the application:
+```bash
+cd /root/LEG-Simulator
+source .venv/bin/activate
+nohup python app.py > /var/log/leg-simulator.log 2>&1 &
+```
+
+Update from GitHub:
+```bash
+cd /root/LEG-Simulator
+git pull
+# Restart the application
+pkill -f "python app.py"
+source .venv/bin/activate
+nohup python app.py > /var/log/leg-simulator.log 2>&1 &
+```
+
+### 15.5 Co-located Services
+
+The same server hosts the Smartmeter Provisioning service:
+
+| Service | URL |
+|---------|-----|
+| LEG-Simulator | https://provision.dhamstack.com:8051 |
+| Smartmeter Provisioning | https://provision.dhamstack.com:5000 |
+
+Both services share the same Let's Encrypt certificate.
