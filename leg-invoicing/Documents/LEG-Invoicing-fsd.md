@@ -243,3 +243,23 @@ House 5 (No PV, No EV):
 ├── Dishwasher: 1.5kW × 1.5h, every 2 days
 └── Washing: 2kW × 2h, 1×/week
 ```
+
+### 9.7 Time Simulation
+
+The simulator operates with a **6-month time offset** to enable realistic summer PV production testing:
+
+```
+Real time:      January 8, 14:30
+Simulated time: July 8, 14:30
+```
+
+This ensures:
+- Full PV production curves during winter testing
+- Accurate summer load patterns
+- Realistic energy export scenarios
+
+**Implementation:**
+```python
+from dateutil.relativedelta import relativedelta
+simulated_time = datetime.now() + relativedelta(months=6)
+```
