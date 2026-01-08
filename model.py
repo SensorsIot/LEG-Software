@@ -1,3 +1,4 @@
+import random
 from dataclasses import dataclass
 
 
@@ -25,10 +26,6 @@ class GridExchange:
 
 
 class EnergyModel:
-    # Fixed power draws
-    EV_POWER_W = 11000  # 11 kW EV charger
-    WASHER_POWER_W = 2000  # 2 kW washer
-
     def __init__(self, house_count: int) -> None:
         self.house_count = house_count
         self._houses = []
@@ -36,10 +33,10 @@ class EnergyModel:
             self._houses.append(
                 {
                     "house_id": f"house_{idx + 1}",
-                    "base_load_w": 0,
+                    "base_load_w": random.randint(5, 20) * 100,  # Random 500-2000W
                     "pv_power_w": 0,
-                    "ev_on": False,
-                    "washer_on": False,
+                    "ev_load_w": 0,  # User-editable EV charger power
+                    "washer_load_w": 0,  # User-editable washer power
                 }
             )
 
@@ -51,8 +48,8 @@ class EnergyModel:
         for house in self._houses:
             pv_power = house["pv_power_w"]
             base_load = house["base_load_w"]
-            ev_load = self.EV_POWER_W if house["ev_on"] else 0.0
-            washer_load = self.WASHER_POWER_W if house["washer_on"] else 0.0
+            ev_load = house["ev_load_w"]
+            washer_load = house["washer_load_w"]
 
             total_load = base_load + ev_load + washer_load
             net_power = pv_power - total_load

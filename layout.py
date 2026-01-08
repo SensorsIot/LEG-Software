@@ -37,10 +37,12 @@ def build_graph(snapshot: SimulationSnapshot) -> go.Figure:
     WASHER_ANGLE = 0             # right
 
     HOUSE_SPACING = 3.5
+    num_houses = len(snapshot.houses)
 
     for idx, house in enumerate(snapshot.houses):
-        house_y = 6 - idx * HOUSE_SPACING
-        house_x = -2
+        # Houses arranged horizontally at top
+        house_x = (idx - (num_houses - 1) / 2) * HOUSE_SPACING
+        house_y = 4
 
         # Main house node
         main_x.append(house_x)
@@ -59,13 +61,13 @@ def build_graph(snapshot: SimulationSnapshot) -> go.Figure:
         pv_power = house.pv_power_w
         comp_text.append(f"☀️<br>{_format_power(pv_power)}")
         comp_color.append("#f4d03f" if pv_power > 100 else "#bbb")
-        comp_size.append(42)
-        comp_hover.append(f"<b>PV Panel</b><br>Production: {_format_power(pv_power)}")
+        comp_size.append(55)
+        comp_hover.append(f"<b>PV Panel</b><br>{_format_power(pv_power)} - Click to edit")
         comp_customdata.append({"type": "pv", "id": idx})
         # Line: PV - House
         shapes.append(dict(
             type="line", x0=pv_x, y0=pv_y, x1=house_x, y1=house_y,
-            line=dict(color="#1b9e77", width=LINE_WIDTH),
+            line=dict(color="#1b9e77", width=LINE_WIDTH), layer="below",
         ))
 
         # Base load (bottom)
@@ -76,13 +78,13 @@ def build_graph(snapshot: SimulationSnapshot) -> go.Figure:
         base_power = house.base_load_w
         comp_text.append(f"💡<br>{_format_power(base_power)}")
         comp_color.append("#d95f02")
-        comp_size.append(42)
-        comp_hover.append(f"<b>Base Load</b><br>Consumption: {_format_power(base_power)}")
+        comp_size.append(55)
+        comp_hover.append(f"<b>Base Load</b><br>{_format_power(base_power)} - Click to edit")
         comp_customdata.append({"type": "base", "id": idx, "clickable": True})
         # Line: House - Base
         shapes.append(dict(
             type="line", x0=house_x, y0=house_y, x1=base_x, y1=base_y,
-            line=dict(color="#d95f02", width=LINE_WIDTH),
+            line=dict(color="#d95f02", width=LINE_WIDTH), layer="below",
         ))
 
         # EV Charger (left)
@@ -94,13 +96,13 @@ def build_graph(snapshot: SimulationSnapshot) -> go.Figure:
         ev_on = ev_power > 0
         comp_text.append(f"🚗<br>{_format_power(ev_power)}" if ev_on else "🚗<br>0kW")
         comp_color.append("#e74c3c" if ev_on else "#95a5a6")
-        comp_size.append(42)
-        comp_hover.append(f"<b>EV Charger</b><br>{'ON: ' + _format_power(ev_power) if ev_on else 'OFF - Click to start'}")
+        comp_size.append(55)
+        comp_hover.append(f"<b>EV Charger</b><br>{_format_power(ev_power)} - Click to edit")
         comp_customdata.append({"type": "ev", "id": idx, "clickable": True})
         # Line: House - EV
         shapes.append(dict(
             type="line", x0=house_x, y0=house_y, x1=ev_x, y1=ev_y,
-            line=dict(color="#e74c3c" if ev_on else "#ccc", width=LINE_WIDTH),
+            line=dict(color="#e74c3c" if ev_on else "#ccc", width=LINE_WIDTH), layer="below",
         ))
 
         # Washer (right)
@@ -112,24 +114,24 @@ def build_graph(snapshot: SimulationSnapshot) -> go.Figure:
         washer_on = washer_power > 0
         comp_text.append(f"🧺<br>{_format_power(washer_power)}" if washer_on else "🧺<br>0kW")
         comp_color.append("#9b59b6" if washer_on else "#95a5a6")
-        comp_size.append(42)
-        comp_hover.append(f"<b>Washer</b><br>{'ON: ' + _format_power(washer_power) if washer_on else 'OFF - Click to start'}")
+        comp_size.append(55)
+        comp_hover.append(f"<b>Washer</b><br>{_format_power(washer_power)} - Click to edit")
         comp_customdata.append({"type": "washer", "id": idx, "clickable": True})
         # Line: House - Washer
         shapes.append(dict(
             type="line", x0=house_x, y0=house_y, x1=washer_x, y1=washer_y,
-            line=dict(color="#9b59b6" if washer_on else "#ccc", width=LINE_WIDTH),
+            line=dict(color="#9b59b6" if washer_on else "#ccc", width=LINE_WIDTH), layer="below",
         ))
 
         # Line from house to community (always visible)
-        comm_x, comm_y = 3, 0
+        comm_x, comm_y = 0, -2  # Community position (below houses)
         flow = house.net_power_w
         flow_color = "#1b9e77" if flow > 0 else "#d95f02" if flow < 0 else "#ccc"
 
         # Always draw base connection line
         shapes.append(dict(
             type="line", x0=house_x, y0=house_y, x1=comm_x, y1=comm_y,
-            line=dict(color="#ccc" if abs(flow) <= 10 else flow_color, width=LINE_WIDTH),
+            line=dict(color="#ccc" if abs(flow) <= 10 else flow_color, width=LINE_WIDTH), layer="below",
         ))
 
         if abs(flow) > 10:
@@ -151,14 +153,14 @@ def build_graph(snapshot: SimulationSnapshot) -> go.Figure:
             mid_x = (house_x + comm_x) / 2
             mid_y = (house_y + comm_y) / 2
             annotations.append(dict(
-                x=mid_x + 0.3, y=mid_y,
+                x=mid_x + 0.5, y=mid_y,
                 text=f"<b>{_format_power(abs(flow))}</b>",
                 showarrow=False,
                 font=dict(size=10, color=flow_color),
             ))
 
-    # Community bus
-    comm_x, comm_y = 3, 0
+    # Community bus (below houses, centered)
+    comm_x, comm_y = 0, -2
     main_x.append(comm_x)
     main_y.append(comm_y)
     main_text.append("Community")
@@ -172,8 +174,8 @@ def build_graph(snapshot: SimulationSnapshot) -> go.Figure:
     )
     main_customdata.append({"type": "community"})
 
-    # Grid
-    grid_x, grid_y = 6, 0
+    # Grid (below community, centered)
+    grid_x, grid_y = 0, -6
     main_x.append(grid_x)
     main_y.append(grid_y)
     main_text.append("Grid")
@@ -193,7 +195,7 @@ def build_graph(snapshot: SimulationSnapshot) -> go.Figure:
     # Always draw base connection line
     shapes.append(dict(
         type="line", x0=comm_x, y0=comm_y, x1=grid_x, y1=grid_y,
-        line=dict(color="#ccc" if abs(community_flow) <= 10 else grid_color, width=LINE_WIDTH),
+        line=dict(color="#ccc" if abs(community_flow) <= 10 else grid_color, width=LINE_WIDTH), layer="below",
     ))
 
     if abs(community_flow) > 10:
@@ -212,7 +214,7 @@ def build_graph(snapshot: SimulationSnapshot) -> go.Figure:
                 showarrow=True, arrowhead=2, arrowsize=1.2, arrowwidth=ARROW_WIDTH, arrowcolor=grid_color,
             ))
         annotations.append(dict(
-            x=(comm_x + grid_x) / 2, y=0.4,
+            x=0.5, y=(comm_y + grid_y) / 2,
             text=f"<b>{_format_power(abs(community_flow))}</b>",
             showarrow=False,
             font=dict(size=12, color=grid_color),
@@ -254,15 +256,15 @@ def build_graph(snapshot: SimulationSnapshot) -> go.Figure:
         customdata=comp_customdata,
     )
 
-    # Legend with icons
+    # Legend with icons (positioned to the right)
     legend_annotations = [
-        dict(x=7.5, y=5, text="<b>Legend</b>", showarrow=False, font=dict(size=14)),
-        dict(x=7.5, y=4.2, text="☀️ PV (production)", showarrow=False, font=dict(size=13, color="#f4d03f")),
-        dict(x=7.5, y=3.4, text="💡 Base load", showarrow=False, font=dict(size=13, color="#d95f02")),
-        dict(x=7.5, y=2.6, text="🚗 EV 11kW", showarrow=False, font=dict(size=13, color="#e74c3c")),
-        dict(x=7.5, y=1.8, text="🧺 Washer 2kW", showarrow=False, font=dict(size=13, color="#9b59b6")),
-        dict(x=7.5, y=0.8, text="<b>→</b> Green = Export", showarrow=False, font=dict(size=12, color="#1b9e77")),
-        dict(x=7.5, y=0.0, text="<b>→</b> Orange = Import", showarrow=False, font=dict(size=12, color="#d95f02")),
+        dict(x=10, y=4, text="<b>Legend</b>", showarrow=False, font=dict(size=14), xanchor="left"),
+        dict(x=10, y=3.2, text="☀️ PV (production)", showarrow=False, font=dict(size=13, color="#f4d03f"), xanchor="left"),
+        dict(x=10, y=2.4, text="💡 Base load", showarrow=False, font=dict(size=13, color="#d95f02"), xanchor="left"),
+        dict(x=10, y=1.6, text="🚗 EV charger", showarrow=False, font=dict(size=13, color="#e74c3c"), xanchor="left"),
+        dict(x=10, y=0.8, text="🧺 Washer", showarrow=False, font=dict(size=13, color="#9b59b6"), xanchor="left"),
+        dict(x=10, y=-0.2, text="<b>→</b> Green = Export", showarrow=False, font=dict(size=12, color="#1b9e77"), xanchor="left"),
+        dict(x=10, y=-1.0, text="<b>→</b> Orange = Import", showarrow=False, font=dict(size=12, color="#d95f02"), xanchor="left"),
     ]
 
     fig = go.Figure(data=[main_trace, comp_trace])
@@ -271,8 +273,8 @@ def build_graph(snapshot: SimulationSnapshot) -> go.Figure:
         showlegend=False,
         hovermode='closest',
         margin=dict(l=20, r=20, t=50, b=20),
-        xaxis=dict(showgrid=False, zeroline=False, showticklabels=False, range=[-4, 9]),
-        yaxis=dict(showgrid=False, zeroline=False, showticklabels=False, range=[-10, 8], scaleanchor='x'),
+        xaxis=dict(showgrid=False, zeroline=False, showticklabels=False, range=[-10, 14]),
+        yaxis=dict(showgrid=False, zeroline=False, showticklabels=False, range=[-9, 7], scaleanchor='x'),
         plot_bgcolor='#f8f9fa',
         paper_bgcolor='#f8f9fa',
         height=1000,

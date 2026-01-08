@@ -33,25 +33,25 @@ app.layout = html.Div(
             html.Div([
                 html.Div([
                     html.Label("Grid Delivery (sell):"),
-                    dcc.Input(id="price-grid-delivery", type="number", value=6, min=0, step=0.1,
+                    dcc.Input(id="price-grid-delivery", type="number", value=6, min=0, step=0.01,
                               style={"width": "80px", "marginLeft": "10px"}),
                     html.Span(" ct/kWh", style={"marginLeft": "5px"}),
                 ], style={"display": "inline-block", "marginRight": "30px"}),
                 html.Div([
                     html.Label("Grid Consumption (buy):"),
-                    dcc.Input(id="price-grid-consumption", type="number", value=30, min=0, step=0.1,
+                    dcc.Input(id="price-grid-consumption", type="number", value=30, min=0, step=0.01,
                               style={"width": "80px", "marginLeft": "10px"}),
                     html.Span(" ct/kWh", style={"marginLeft": "5px"}),
                 ], style={"display": "inline-block", "marginRight": "30px"}),
                 html.Div([
                     html.Label("PV Delivery:"),
-                    dcc.Input(id="price-pv-delivery", type="number", value=20, min=0, step=0.1,
+                    dcc.Input(id="price-pv-delivery", type="number", value=20, min=0, step=0.01,
                               style={"width": "80px", "marginLeft": "10px"}),
                     html.Span(" ct/kWh", style={"marginLeft": "5px"}),
                 ], style={"display": "inline-block", "marginRight": "30px"}),
                 html.Div([
                     html.Label("House Consumption:"),
-                    dcc.Input(id="price-house-consumption", type="number", value=25, min=0, step=0.1,
+                    dcc.Input(id="price-house-consumption", type="number", value=25, min=0, step=0.01,
                               style={"width": "80px", "marginLeft": "10px"}),
                     html.Span(" ct/kWh", style={"marginLeft": "5px"}),
                 ], style={"display": "inline-block"}),
@@ -85,6 +85,8 @@ app.layout = html.Div(
         html.Div([
             html.H3("Energy Costs (ct/h)", style={"marginBottom": "10px"}),
             html.Div(id="pricing-table"),
+            html.Div(id="breakeven-indicator", style={"marginTop": "15px", "padding": "10px",
+                      "backgroundColor": "#e8f4f8", "borderRadius": "5px", "borderLeft": "4px solid #3498db"}),
         ], style={"padding": "10px", "backgroundColor": "#f8f9fa", "borderRadius": "8px", "marginBottom": "20px"}),
 
         # Graph
@@ -138,10 +140,10 @@ def handle_click(click_data, cancel_clicks, edit_store):
                         current_value = house["pv_power_w"] / 1000
                     elif device_type == "ev":
                         title = f"Edit EV Power - House {house_idx + 1}"
-                        current_value = 11.0 if house["ev_on"] else 0
+                        current_value = house["ev_load_w"] / 1000
                     elif device_type == "washer":
                         title = f"Edit Washer Power - House {house_idx + 1}"
-                        current_value = 2.0 if house["washer_on"] else 0
+                        current_value = house["washer_load_w"] / 1000
                     elif device_type == "base":
                         title = f"Edit Base Load - House {house_idx + 1}"
                         current_value = house["base_load_w"] / 1000
@@ -169,9 +171,9 @@ def apply_edit(apply_clicks, new_value, edit_store):
             if device_type == "pv":
                 house["pv_power_w"] = new_value * 1000  # Convert kW to W
             elif device_type == "ev":
-                house["ev_on"] = new_value > 0
+                house["ev_load_w"] = new_value * 1000  # Convert kW to W
             elif device_type == "washer":
-                house["washer_on"] = new_value > 0
+                house["washer_load_w"] = new_value * 1000  # Convert kW to W
             elif device_type == "base":
                 house["base_load_w"] = new_value * 1000  # Convert kW to W
 
@@ -181,7 +183,7 @@ def apply_edit(apply_clicks, new_value, edit_store):
 
 
 @app.callback(
-    [Output("energy-graph", "figure"), Output("pricing-table", "children")],
+    [Output("energy-graph", "figure"), Output("pricing-table", "children"), Output("breakeven-indicator", "children")],
     [Input("tick", "n_intervals"),
      Input("price-grid-delivery", "value"),
      Input("price-grid-consumption", "value"),
@@ -194,8 +196,39 @@ def update_graph(n_intervals, price_grid_del, price_grid_con, price_pv_del, pric
     snapshot = simulation.tick()
     fig = build_graph(snapshot)
 
+    # Calculate E (total exports) and I (total imports) for break-even optimization
+    E_total = 0.0  # Total exports from houses (kWh)
+    I_total = 0.0  # Total imports to houses (kWh)
+    for house in snapshot.houses:
+        net_kw = house.net_power_w / 1000
+        if net_kw > 0:
+            E_total += net_kw
+        else:
+            I_total += abs(net_kw)
+
+    # Calculate optimal p_con (break-even house consumption price) BEFORE building table
+    # Formula: p_con = p_grid + (E/I) * (p_pv - p_grid)
+    p_pv = price_pv_del or 20
+    p_grid_del = price_grid_del or 6
+    p_grid_con = price_grid_con or 30
+
+    if I_total == 0:
+        # No imports - use default price
+        optimal_p_con = price_house_con or 25
+    elif E_total == 0:
+        # No exports - pass-through from grid
+        optimal_p_con = p_grid_con
+    else:
+        # Normal case: calculate break-even price
+        if E_total >= I_total:
+            p_grid = p_grid_del  # Surplus mode
+        else:
+            p_grid = p_grid_con  # Deficit mode
+        optimal_p_con = p_grid + (E_total / I_total) * (p_pv - p_grid)
+
     # Build pricing table with 7 columns: Title, House Buy/Sell, Community Buy/Sell, Grid Buy/Sell
     # Logic: House sells to Community (same kWh), Community sells to Grid (same kWh)
+    # Use optimal_p_con for break-even calculations
     table_rows = []
     totals = {"house_buy": 0, "house_sell": 0, "comm_buy": 0, "comm_sell": 0}
 
@@ -208,11 +241,11 @@ def update_graph(n_intervals, price_grid_del, price_grid_con, price_pv_del, pric
         # If net < 0: House imports (buys) from community
         if net_kw > 0:  # House exports to community
             house_buy = 0
-            house_sell = net_kw * (price_pv_del or 0)  # House sells at PV rate
+            house_sell = net_kw * p_pv  # House sells at PV rate
             comm_buy = house_sell  # Community buys same amount
             comm_sell = 0
         else:  # House imports from community
-            house_buy = abs(net_kw) * (price_house_con or 0)  # House buys at consumption rate
+            house_buy = abs(net_kw) * (price_house_con or 25)  # House buys at user-set rate
             house_sell = 0
             comm_buy = 0
             comm_sell = house_buy  # Community sells same amount
@@ -240,13 +273,13 @@ def update_graph(n_intervals, price_grid_del, price_grid_con, price_pv_del, pric
     # Grid: same kWh as community net, at grid prices
     community_net_kw = snapshot.community.net_community_power_w / 1000
     if community_net_kw > 0:  # Community exports to grid
-        grid_buy = community_net_kw * (price_grid_del or 0)  # Grid buys at delivery rate
+        grid_buy = community_net_kw * p_grid_del  # Grid buys at delivery rate
         grid_sell = 0
         # Community earns from selling to grid
         totals["comm_sell"] += grid_buy  # Community sells to grid (same amount grid buys)
     else:  # Community imports from grid
         grid_buy = 0
-        grid_sell = abs(community_net_kw) * (price_grid_con or 0)  # Grid sells at consumption rate
+        grid_sell = abs(community_net_kw) * p_grid_con  # Grid sells at consumption rate
         # Community pays for buying from grid
         totals["comm_buy"] += grid_sell  # Community buys from grid (same amount grid sells)
 
@@ -259,8 +292,8 @@ def update_graph(n_intervals, price_grid_del, price_grid_con, price_pv_del, pric
         html.Td("Grid", style={"fontWeight": "bold", "padding": "4px", "backgroundColor": "#e8e8e8"}),
         html.Td("-", style={**cell_na, "borderLeft": "2px solid #333", "backgroundColor": "#e8e8e8"}),
         html.Td("-", style={**cell_na, "borderRight": "2px solid #333", "backgroundColor": "#e8e8e8"}),
-        html.Td(f"{grid_buy:.1f}" if grid_buy > 0 else "-", style={**cell_buy, "backgroundColor": "#e8e8e8"}),
-        html.Td(f"{grid_sell:.1f}" if grid_sell > 0 else "-", style={**cell_sell, "backgroundColor": "#e8e8e8"}),
+        html.Td(f"{grid_sell:.1f}" if grid_sell > 0 else "-", style={**cell_buy, "backgroundColor": "#e8e8e8"}),
+        html.Td(f"{grid_buy:.1f}" if grid_buy > 0 else "-", style={**cell_sell, "backgroundColor": "#e8e8e8"}),
         html.Td(f"{grid_buy:.1f}", style={**cell_buy, "backgroundColor": "#e8e8e8"}),
         html.Td(f"{grid_sell:.1f}", style={**cell_sell, "backgroundColor": "#e8e8e8"}),
     ]))
@@ -278,6 +311,17 @@ def update_graph(n_intervals, price_grid_del, price_grid_con, price_pv_del, pric
         html.Td(f"{totals['comm_sell']:.1f}", style=tot_sell),
         html.Td(f"{grid_buy:.1f}", style=tot_buy),
         html.Td(f"{grid_sell:.1f}", style=tot_sell),
+    ]))
+
+    # Community Profit row - prominent display with large font
+    community_profit = totals["comm_sell"] - totals["comm_buy"]
+    profit_color = "#27ae60" if abs(community_profit) < 0.1 else ("#27ae60" if community_profit > 0 else "#e74c3c")
+    table_rows.append(html.Tr([
+        html.Td("Community Profit:", colSpan=5, style={"fontWeight": "bold", "fontSize": "24px",
+                "padding": "12px 4px", "textAlign": "right", "borderTop": "2px solid #333"}),
+        html.Td(f"{community_profit:.1f} ct/h", colSpan=2, style={"fontWeight": "bold", "fontSize": "28px",
+                "padding": "12px 20px 12px 4px", "textAlign": "right", "color": profit_color,
+                "borderTop": "2px solid #333", "backgroundColor": "#f0f8f0" if abs(community_profit) < 0.1 else "#fff"}),
     ]))
 
     # Column group styling
@@ -305,7 +349,36 @@ def update_graph(n_intervals, price_grid_del, price_grid_con, price_pv_del, pric
         html.Tbody(table_rows),
     ], style={"width": "100%", "borderCollapse": "collapse", "fontSize": "12px"})
 
-    return fig, pricing_table
+    # Break-even indicator: show the optimal p_con being used
+    if I_total == 0:
+        mode = "No imports"
+        breakeven_content = [
+            html.Strong("Break-Even Optimization"),
+            html.Br(),
+            html.Span("No house imports (I=0) - using default price", style={"color": "#7f8c8d"}),
+        ]
+    elif E_total == 0:
+        mode = "Grid pass-through"
+        breakeven_content = [
+            html.Strong("Break-Even Optimization"),
+            html.Br(),
+            html.Span(f"E = {E_total:.1f} kWh | I = {I_total:.1f} kWh | Mode: {mode}"),
+            html.Br(),
+            html.Span(f"p_con = {optimal_p_con:.2f} ct/kWh", style={"fontWeight": "bold", "color": "#2980b9", "fontSize": "14px"}),
+            html.Span(" (= grid price)", style={"color": "#7f8c8d"}),
+        ]
+    else:
+        mode = "Surplus" if E_total >= I_total else "Deficit"
+        breakeven_content = [
+            html.Strong("Break-Even Optimization"),
+            html.Br(),
+            html.Span(f"E = {E_total:.1f} kWh | I = {I_total:.1f} kWh | Mode: {mode}"),
+            html.Br(),
+            html.Span(f"p_con = ", style={"fontWeight": "bold"}),
+            html.Span(f"{optimal_p_con:.2f} ct/kWh", style={"fontWeight": "bold", "color": "#2980b9", "fontSize": "14px"}),
+        ]
+
+    return fig, pricing_table, breakeven_content
 
 
 if __name__ == "__main__":

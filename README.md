@@ -27,9 +27,10 @@ It answers the question: *"What is happening right now with energy in our commun
 
 - 🏠 **Houses**: Each with solar panels and consumption (click to edit)
 - ☀️ **PV Production**: User-defined values per house
-- 🔌 **Loads**: Base load + EV (11kW) + Washer (2kW) - all clickable
+- 🔌 **Loads**: Base load (random 0.5-2kW initial) + EV + Washer - all click-to-edit
 - 🔄 **Energy Flows**: Net flows visualized with colored arrows
 - 📊 **Pricing Table**: Buy/Sell costs for House, Community, Grid
+- 📈 **Break-Even**: Calculates optimal house consumption price for community profit = 0
 
 ## 🎨 Visual Indicators
 
