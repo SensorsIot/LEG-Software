@@ -126,11 +126,15 @@ class EnergyCollector:
             value_consumption = delta_ei * tariffs['p_con']
             value_pv_delivery = delta_eo * tariffs['p_pv']
 
+            # Net flow per home: positive = exporting to community, negative = importing
+            net_flow_home = delta_eo - delta_ei
+
             point = Point("house_energy") \
                 .tag("house_id", str(data['house_id'])) \
                 .tag("mac", mac) \
                 .field("delta_ei_kwh", delta_ei) \
                 .field("delta_eo_kwh", delta_eo) \
+                .field("net_flow_kwh", net_flow_home) \
                 .field("value_consumption_ct", value_consumption) \
                 .field("value_pv_delivery_ct", value_pv_delivery) \
                 .field("tariff_p_con", tariffs['p_con']) \
@@ -153,11 +157,19 @@ class EnergyCollector:
         value_grid_export = grid_export * tariffs['p_grid_del']
         value_grid_import = grid_import * tariffs['p_grid_con']
 
+        # Net flow from homes to community: positive = homes supply community
+        net_flow_homes_to_community = total_production - total_consumption
+
+        # Net flow from community to grid: positive = community exports, negative = imports
+        net_flow_community_to_grid = grid_export - grid_import
+
         community_point = Point("community_energy") \
             .field("total_consumption_kwh", total_consumption) \
             .field("total_production_kwh", total_production) \
+            .field("net_flow_homes_to_community_kwh", net_flow_homes_to_community) \
             .field("grid_import_kwh", grid_import) \
             .field("grid_export_kwh", grid_export) \
+            .field("net_flow_community_to_grid_kwh", net_flow_community_to_grid) \
             .field("value_grid_import_ct", value_grid_import) \
             .field("value_grid_export_ct", value_grid_export) \
             .field("tariff_p_grid_con", tariffs['p_grid_con']) \
