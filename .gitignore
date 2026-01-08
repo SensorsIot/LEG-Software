@@ -18,6 +18,10 @@ secrets.yml
 credentials.json
 *.pem
 *.key
+config.py
+config.yaml
+!config.example.py
+!config.example.yaml
 
 # AI Agents
 .claude/

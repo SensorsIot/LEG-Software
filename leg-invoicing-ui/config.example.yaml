@@ -1,0 +1,79 @@
+# LEG-Invoicing Configuration Example
+# Copy this file to config.yaml and fill in your values.
+# DO NOT commit config.yaml to git - it contains secrets!
+
+# =============================================================================
+# MQTT Configuration
+# =============================================================================
+mqtt:
+  broker: "provision.dhamstack.com"
+  port: 8883
+  use_tls: true
+  username: "your_mqtt_username"
+  password: "your_mqtt_password"
+
+# =============================================================================
+# InfluxDB Configuration
+# =============================================================================
+influxdb:
+  url: "https://provision.dhamstack.com:8087"
+  token: "your_influxdb_token"
+  org: "LEG"
+  bucket: "energy"
+
+# =============================================================================
+# House Configuration
+# =============================================================================
+houses:
+  "B0-81-84-25-22-5C":
+    id: 1
+    name: "House 1"
+    type: "real"
+  "AA-11-BB-22-CC-01":
+    id: 2
+    name: "House 2"
+    type: "simulated"
+    pv_kwp: 10.0
+  "AA-11-BB-22-CC-02":
+    id: 3
+    name: "House 3"
+    type: "simulated"
+    pv_kwp: 20.0
+  "AA-11-BB-22-CC-03":
+    id: 4
+    name: "House 4"
+    type: "simulated"
+    pv_kwp: 0
+  "AA-11-BB-22-CC-04":
+    id: 5
+    name: "House 5"
+    type: "simulated"
+    pv_kwp: 0
+
+# =============================================================================
+# Default Tariffs (ct/kWh)
+# =============================================================================
+tariffs:
+  p_pv: 20.0
+  p_grid_del: 6.0
+  p_grid_con: 30.0
+
+# =============================================================================
+# Collector Settings
+# =============================================================================
+collector:
+  interval: 10
+
+# =============================================================================
+# Web UI Settings
+# =============================================================================
+web:
+  host: "0.0.0.0"
+  port: 8060
+
+# =============================================================================
+# Logging
+# =============================================================================
+logging:
+  level: "INFO"
+  file: null

@@ -263,3 +263,183 @@ This ensures:
 from dateutil.relativedelta import relativedelta
 simulated_time = datetime.now() + relativedelta(months=6)
 ```
+
+---
+
+## 10. Data Storage (InfluxDB)
+
+### 10.1 Overview
+
+Energy data is stored in InfluxDB, a time-series database optimized for high-volume measurements.
+
+### 10.2 Connection Details
+
+| Parameter | Value |
+|-----------|-------|
+| Server | provision.dhamstack.com |
+| Port (Internal) | 8086 |
+| Port (External/HTTPS) | 8087 |
+| Organization | LEG |
+| Bucket | energy |
+| User | admin |
+
+### 10.3 Measurements
+
+#### house_energy (per-house data)
+
+| Field | Type | Description |
+|-------|------|-------------|
+| delta_ei_kwh | float | Energy consumed this interval |
+| delta_eo_kwh | float | Energy exported this interval |
+| value_consumption_ct | float | delta_ei × p_con |
+| value_pv_delivery_ct | float | delta_eo × p_pv |
+| tariff_p_con | float | Applied consumption tariff |
+| tariff_p_pv | float | Applied PV delivery tariff |
+
+**Tags:** house_id, mac
+
+#### community_energy (aggregated data)
+
+| Field | Type | Description |
+|-------|------|-------------|
+| total_consumption_kwh | float | Sum of all house consumption |
+| total_production_kwh | float | Sum of all house production |
+| grid_import_kwh | float | Energy bought from grid |
+| grid_export_kwh | float | Energy sold to grid |
+| value_grid_import_ct | float | grid_import × p_grid_con |
+| value_grid_export_ct | float | grid_export × p_grid_del |
+| tariff_p_grid_con | float | Applied grid consumption tariff |
+| tariff_p_grid_del | float | Applied grid delivery tariff |
+
+### 10.4 Data Flow
+
+```
+MQTT Messages → Collector → InfluxDB
+     ↓              ↓
+  Ei/Eo        Calculate deltas
+  values       Apply tariffs
+               Store every 10s
+```
+
+---
+
+## 11. Configuration
+
+### 11.1 Overview
+
+All services use a centralized YAML configuration file (`config.yaml`). A template is provided in `config.example.yaml`.
+
+### 11.2 Configuration File Structure
+
+```yaml
+mqtt:
+  broker: "provision.dhamstack.com"
+  port: 8883
+  use_tls: true
+  username: "..."
+  password: "..."
+
+influxdb:
+  url: "https://provision.dhamstack.com:8087"
+  token: "..."
+  org: "LEG"
+  bucket: "energy"
+
+houses:
+  "B0-81-84-25-22-5C":
+    id: 1
+    name: "House 1"
+    type: "real"
+  # ... more houses
+
+tariffs:
+  p_pv: 20.0
+  p_grid_del: 6.0
+  p_grid_con: 30.0
+
+collector:
+  interval: 10
+
+web:
+  host: "0.0.0.0"
+  port: 8060
+
+logging:
+  level: "INFO"
+  file: null
+```
+
+### 11.3 Environment-Specific Settings
+
+| Setting | Local Development | Remote Server |
+|---------|-------------------|---------------|
+| MQTT Broker | provision.dhamstack.com:8883 | 10.0.0.1:1883 |
+| MQTT TLS | Yes | No |
+| InfluxDB URL | https://provision...:8087 | http://localhost:8086 |
+
+### 11.4 Git Strategy
+
+- `config.example.yaml` - Committed (template)
+- `config.yaml` - Ignored (contains secrets)
+
+---
+
+## 12. Development Environment
+
+### 12.1 Local Development
+
+Development is performed on the local machine with deployment to the remote server.
+
+| Component | Local Path |
+|-----------|------------|
+| Repository | /home/energymanagement/LEG-Software/ |
+| Invoicing UI | leg-invoicing-ui/ |
+| MQTT Simulator | leg-mqtt-simulator/ |
+| Documentation | leg-invoicing/Documents/ |
+
+### 12.2 Deployment Workflow
+
+```
+1. Edit code locally
+2. git commit && git push
+3. SSH to remote: git pull
+4. Restart services
+```
+
+### 12.3 Remote Server
+
+| Service | URL | Port |
+|---------|-----|------|
+| Tariff UI | https://provision.dhamstack.com:8052 | 8052 |
+| InfluxDB | https://provision.dhamstack.com:8087 | 8087 |
+| LEG-Simulator | https://provision.dhamstack.com:8051 | 8051 |
+| Provisioning | https://provision.dhamstack.com:5000 | 5000 |
+
+---
+
+## 13. Tariff UI (leg-invoicing-ui)
+
+### 13.1 Purpose
+
+Web interface for managing energy tariffs used in invoice calculations.
+
+### 13.2 Features
+
+- Input table for configurable tariffs (p_pv, p_grid_del, p_grid_con)
+- Auto-calculated house tariff: p_con = (p_pv + p_grid_con) / 2
+- REST API for tariff management
+- Real-time updates via JavaScript
+
+### 13.3 Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| / | GET | Tariff management UI |
+| /api/tariffs | GET | Get current tariffs |
+| /api/tariffs | POST | Update tariffs |
+
+### 13.4 Technology Stack
+
+- Flask (Python web framework)
+- HTML/CSS/JavaScript frontend
+- tariffs.json (persistent storage)
