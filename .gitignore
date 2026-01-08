@@ -48,3 +48,5 @@ data/
 # OS
 .DS_Store
 Thumbs.db
+leg-mqtt-simulator/state.json
+leg-mqtt-simulator/.venv/
