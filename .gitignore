@@ -1,4 +1,50 @@
+# Python
 .venv/
+venv/
 __pycache__/
 *.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+
+# Secrets
 .env
+.env.*
+*.secret
+*.secrets
+secrets.yaml
+secrets.yml
+credentials.json
+*.pem
+*.key
+
+# AI Agents
+.claude/
+CLAUDE.md
+agents.md
+.cursor/
+.cursorrules
+.copilot/
+.github/copilot-instructions.md
+.aider*
+.codeium/
+.tabnine/
+.kite/
+.sourcery.yaml
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Data/Logs
+data/
+*.log
+*.csv
+
+# OS
+.DS_Store
+Thumbs.db

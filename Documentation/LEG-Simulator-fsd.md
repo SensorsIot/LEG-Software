@@ -21,11 +21,13 @@ an AI coding agent.
   - PV generation
   - Baseline household consumption
   - Occasional large loads (e.g., dishwasher, EV wallbox)
+  - Interactive toggles for EV charger and washer
 - Visualization of:
   - Energy flows between houses
   - Energy exchange with an external grid / energy company
 - Headless deployment on a virtual machine
 - Browser-based visualization
+- CSV logging of simulation data for later analysis
 
 ### 2.2 Out of Scope
 - Forecasting (daily, weekly, or longer)
@@ -43,6 +45,7 @@ an AI coding agent.
    - Produces solar energy
    - Consumes energy
    - Net power may be positive (export) or negative (import)
+   - Contains toggleable flex loads (EV charger, washer)
 
 2. **Community Bus**
    - Logical aggregation point
@@ -51,6 +54,7 @@ an AI coding agent.
 3. **External Grid / Energy Company**
    - Supplies energy if community is short
    - Absorbs energy if community has surplus
+   - Unlimited capacity (no upper bounds on import/export)
 
 ---
 
@@ -83,8 +87,9 @@ No decisions are made to shift loads or change behavior.
 ## 5. Time Model
 
 - Simulation operates in real time
-- Typical update interval: 0.5 s to 2 s (configurable)
+- Update interval: 10 seconds (configurable in config.yaml)
 - Each update represents “now”, not a future or averaged state
+- Configuration is loaded at simulation start from config.yaml (no runtime reload)
 
 ---
 
@@ -98,7 +103,11 @@ No decisions are made to shift loads or change behavior.
   "pv_power_w": 3200,
   "base_load_w": 450,
   "flex_load_w": 0,
-  "net_power_w": 2750
+  "net_power_w": 2750,
+  "ev_on": false,
+  "washer_on": false,
+  "ev_load_w": 11000,
+  "washer_load_w": 2000
 }
 ```
 
@@ -137,6 +146,11 @@ Directed graph (network diagram)
 - Represent power flow direction
 - Thickness proportional to absolute power
 
+**Labels**
+- Numeric labels on nodes and edges by default
+- Hover still shows full details
+- Display kW for production, consumption, and net values
+
 **Color**
 - Green: export
 - Red: import
@@ -148,6 +162,7 @@ Directed graph (network diagram)
 - Hover on edges:
   - Show instantaneous power flow (W)
 - Live updates without page reload
+- Click on a house node to access controls with one button per EV charger/washer toggle
 
 ---
 
@@ -196,14 +211,44 @@ energy-flow-sim/
 
 ```yaml
 houses: 5
-update_interval_ms: 1000
+update_interval_ms: 10000
 pv_variation: enabled
 flex_load_probability: 0.1
 ```
 
+Configuration is read once at startup.
+
 ---
 
-## 12. Extensibility Hooks
+## 12. Load Modeling
+
+- PV generation: deterministic sinusoidal curve with added noise per house.
+- Base load: stochastic behavior per house (simple resample each tick).
+- Flex loads: per-house independent, multi-tick duration for EV charger and washer.
+- EV charger draw: 11 kW when on.
+- Washer draw: 2 kW when on.
+- EV and washer can run simultaneously per house.
+
+---
+
+## 13. Data Logging
+
+- Append simulation data to a CSV file for future analysis.
+- Logged values should include timestamp, per-house values, and community/grid totals.
+- Append cadence: every simulation tick.
+- Default log path: data/leg_simulator_log.csv.
+- Row format: one row per house per tick.
+
+---
+
+## 14. Layout
+
+- Preferred layout: use networkx for node positioning when available.
+- Fallback: deterministic layout if networkx is unavailable.
+
+---
+
+## 15. Extensibility Hooks
 
 The design must allow later addition of:
 - Batteries
@@ -215,7 +260,7 @@ These must not be implemented in this version.
 
 ---
 
-## 13. Success Criteria
+## 16. Success Criteria
 
 - System runs on a headless VM
 - Accessible via browser
@@ -224,3 +269,5 @@ These must not be implemented in this version.
   - Who produces
   - Who consumes
   - Where surplus or deficit goes
+- Interactive toggles affect house load and flows
+- CSV log grows over time without interrupting the UI
