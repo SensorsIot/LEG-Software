@@ -1,0 +1,4 @@
+Flask>=3.0.0
+influxdb-client>=1.40.0
+paho-mqtt>=2.0.0
+PyYAML>=6.0
