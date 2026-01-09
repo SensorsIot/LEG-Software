@@ -57,20 +57,25 @@ class ApplianceState:
     active: bool = False
     start_time: Optional[datetime] = None
     next_scheduled: Optional[datetime] = None
-    
+    custom_start_hour: Optional[int] = None  # Per-appliance override
+
     def schedule_next(self, now: datetime):
         """Schedule the next run."""
         days_until = random.uniform(0.5, self.frequency_days)
         self.next_scheduled = now + timedelta(days=days_until)
-        # Random start hour (reasonable times)
-        if self.name == "ev_day":
-            hour = random.randint(10, 14)
+
+        # Use custom start hour if set, otherwise use defaults
+        if self.custom_start_hour is not None:
+            hour = self.custom_start_hour
+        elif self.name == "ev_day":
+            hour = random.randint(8, 14)  # 8:00-15:00 window
         elif self.name == "ev_night":
             hour = random.randint(22, 23)
         elif self.name == "washing":
             hour = random.randint(8, 18)
         else:  # dishwasher
             hour = random.randint(12, 21)
+
         self.next_scheduled = self.next_scheduled.replace(
             hour=hour, minute=random.randint(0, 59), second=0
         )
@@ -96,7 +101,7 @@ class ApplianceState:
 
 class House:
     """Simulates a house with PV, appliances, and energy metering."""
-    
+
     def __init__(self, config: dict, initial_ei: float = 1000.0, initial_eo: float = 500.0):
         self.id = config["id"]
         self.mac = config["mac"]
@@ -104,17 +109,22 @@ class House:
         self.pv_kwp = config["pv_kwp"]
         self.has_ev = config["has_ev"]
         self.ev_schedule = config["ev_schedule"]
-        
+
+        # Per-house EV configuration (with fallback to global defaults)
+        self.ev_charge_kwh = config.get("ev_charge_kwh", EV_CHARGE_KWH)
+        self.ev_frequency_days = config.get("ev_frequency_days", EV_FREQUENCY_DAYS)
+        self.ev_start_hour = config.get("ev_start_hour", None)
+
         # Energy counters (ever-increasing)
         self.ei = initial_ei  # kWh imported
         self.eo = initial_eo  # kWh exported
-        
+
         # Timestamp counter (simulates meter uptime in seconds)
         self.ts = random.randint(1000, 100000)
-        
+
         # Initialize appliances
         now = get_simulated_time()
-        
+
         self.appliances = [
             ApplianceState(
                 name="washing",
@@ -129,16 +139,19 @@ class House:
                 frequency_days=DISHWASHER_FREQUENCY_DAYS,
             ),
         ]
-        
+
         # Add EV if house has one
         if self.has_ev:
-            ev_duration = EV_CHARGE_KWH / EV_CHARGER_KW
-            self.appliances.append(ApplianceState(
+            ev_duration = self.ev_charge_kwh / EV_CHARGER_KW
+            ev_appliance = ApplianceState(
                 name=f"ev_{self.ev_schedule}",
                 power_kw=EV_CHARGER_KW,
                 duration_hours=ev_duration,
-                frequency_days=EV_FREQUENCY_DAYS,
-            ))
+                frequency_days=self.ev_frequency_days,
+            )
+            # Store custom start hour if specified
+            ev_appliance.custom_start_hour = self.ev_start_hour
+            self.appliances.append(ev_appliance)
         
         # Schedule initial runs
         for appliance in self.appliances:

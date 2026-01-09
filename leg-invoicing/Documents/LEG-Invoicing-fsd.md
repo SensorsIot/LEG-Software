@@ -158,96 +158,13 @@ LEG-Invoicing receives energy metering data from smart meters via MQTT. One real
 
 ---
 
-## 9. MQTT Simulator (leg-mqtt-simulator)
+## 9. Data Storage (InfluxDB)
 
-### 9.1 Purpose
-
-Generates realistic smart meter data for 4 simulated houses to complement the real House 1 data, enabling full LEG community simulation.
-
-### 9.2 Update Frequency
-
-- **Interval:** 10 seconds
-- **Topic:** `{MAC}/SENSOR` per house
-
-### 9.3 Simulated Components
-
-| Component | Details |
-|-----------|---------|
-| Base load | 500W day / 200W night (±20% random variation) |
-| PV production | Based on Swiss solar irradiance data for Basel, scaled by kWp |
-| Washing machine | 2 kW × 2 hours, once per week |
-| Dishwasher | 1.5 kW × 1.5 hours, every 2 days |
-| EV charger | 11 kW × ~4.5 hours (50 kWh), twice per week |
-
-### 9.4 House Configuration
-
-| House | PV | EV |
-|-------|-----|-----|
-| 2 | 10 kWp | Day charging (10:00-15:00) |
-| 3 | 20 kWp | Night charging (22:00-03:00) |
-| 4 | None | None |
-| 5 | None | None |
-
-### 9.5 Time Simulation
-
-The simulator operates with a **6-month time offset** to enable realistic summer PV production testing:
-
-| Real Time | Simulated Time |
-|-----------|----------------|
-| January | July |
-| February | August |
-
-This ensures full PV production curves during winter testing.
-
-### 9.6 Energy Accumulator Logic
-
-The simulator maintains cumulative `Ei` and `Eo` counters per house:
-
-```python
-# Every 10 seconds:
-net_power = base_load + appliances - pv_production
-
-if net_power > 0:
-    Ei += net_power * (10 / 3600)  # Importing (kWh)
-else:
-    Eo += abs(net_power) * (10 / 3600)  # Exporting (kWh)
-```
-
-### 9.8 State Storage (InfluxDB)
-
-The simulator writes appliance state directly to InfluxDB at startup and on every change.
-
-**Measurement:** `simulator_state`
-
-| Field | Type | Description |
-|-------|------|-------------|
-| pv_kwp | float | PV system size |
-| has_ev | int | 1 if house has EV, 0 otherwise |
-| washing_active | int | 1 if washing machine running |
-| dishwasher_active | int | 1 if dishwasher running |
-| ev_active | int | 1 if EV charging |
-
-**Tag:** house_id
-
-
-### 9.7 Deployment
-
-| Parameter | Value |
-|-----------|-------|
-| Location | /root/LEG-Software/leg-mqtt-simulator/ |
-| Broker | 10.0.0.1:1883 |
-| Service | leg-mqtt-simulator.service |
-
-
----
-
-## 10. Data Storage (InfluxDB)
-
-### 10.1 Overview
+### 9.1 Overview
 
 Energy data is stored in InfluxDB, a time-series database optimized for high-volume measurements.
 
-### 10.2 Connection Details
+### 9.2 Connection Details
 
 | Parameter | Value |
 |-----------|-------|
@@ -258,7 +175,7 @@ Energy data is stored in InfluxDB, a time-series database optimized for high-vol
 | Bucket | energy |
 | User | admin |
 
-### 10.3 Measurements
+### 9.3 Measurements
 
 #### house_energy (per-house data)
 
@@ -286,7 +203,7 @@ Energy data is stored in InfluxDB, a time-series database optimized for high-vol
 | tariff_p_grid_con | float | Applied grid consumption tariff |
 | tariff_p_grid_del | float | Applied grid delivery tariff |
 
-### 10.4 Data Flow
+### 9.4 Data Flow
 
 ```
 MQTT Messages → Collector → InfluxDB
@@ -298,13 +215,13 @@ MQTT Messages → Collector → InfluxDB
 
 ---
 
-## 11. Configuration
+## 10. Configuration
 
-### 11.1 Overview
+### 10.1 Overview
 
 All services use a centralized YAML configuration file (`config.yaml`). A template is provided in `config.example.yaml`.
 
-### 11.2 Configuration File Structure
+### 10.2 Configuration File Structure
 
 ```yaml
 mqtt:
@@ -344,7 +261,7 @@ logging:
   file: null
 ```
 
-### 11.3 Environment-Specific Settings
+### 10.3 Environment-Specific Settings
 
 | Setting | Local Development | Remote Server |
 |---------|-------------------|---------------|
@@ -352,16 +269,16 @@ logging:
 | MQTT TLS | Yes | No |
 | InfluxDB URL | https://provision...:8087 | http://localhost:8086 |
 
-### 11.4 Git Strategy
+### 10.4 Git Strategy
 
 - `config.example.yaml` - Committed (template)
 - `config.yaml` - Ignored (contains secrets)
 
 ---
 
-## 12. Development Environment
+## 11. Development Environment
 
-### 12.1 Local Development
+### 11.1 Local Development
 
 Development is performed on the local machine with deployment to the remote server.
 
@@ -372,7 +289,7 @@ Development is performed on the local machine with deployment to the remote serv
 | MQTT Simulator | leg-mqtt-simulator/ |
 | Documentation | leg-invoicing/Documents/ |
 
-### 12.2 Deployment Workflow
+### 11.2 Deployment Workflow
 
 ```
 1. Edit code locally
@@ -381,7 +298,7 @@ Development is performed on the local machine with deployment to the remote serv
 4. Restart services
 ```
 
-### 12.3 Remote Server
+### 11.3 Remote Server
 
 | Service | URL | Port |
 |---------|-----|------|
@@ -392,20 +309,20 @@ Development is performed on the local machine with deployment to the remote serv
 
 ---
 
-## 13. Tariff UI (leg-invoicing-ui)
+## 12. Tariff UI (leg-invoicing-ui)
 
-### 13.1 Purpose
+### 12.1 Purpose
 
 Web interface for managing energy tariffs used in invoice calculations.
 
-### 13.2 Features
+### 12.2 Features
 
 - Input table for configurable tariffs (p_pv, p_grid_del, p_grid_con)
 - Auto-calculated house tariff: p_con = (p_pv + p_grid_con) / 2
 - REST API for tariff management
 - Real-time updates via JavaScript
 
-### 13.3 Endpoints
+### 12.3 Endpoints
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
@@ -413,7 +330,7 @@ Web interface for managing energy tariffs used in invoice calculations.
 | /api/tariffs | GET | Get current tariffs |
 | /api/tariffs | POST | Update tariffs |
 
-### 13.4 Technology Stack
+### 12.4 Technology Stack
 
 - Flask (Python web framework)
 - HTML/CSS/JavaScript frontend
@@ -421,13 +338,13 @@ Web interface for managing energy tariffs used in invoice calculations.
 
 ---
 
-## 14. Grafana Dashboards
+## 13. Grafana Dashboards
 
-### 14.1 Overview
+### 13.1 Overview
 
 Energy data is visualized through Grafana dashboards accessible at http://192.168.0.203:3000
 
-### 14.2 Dashboards
+### 13.2 Dashboards
 
 | Dashboard | UID | Description |
 |-----------|-----|-------------|
@@ -435,7 +352,7 @@ Energy data is visualized through Grafana dashboards accessible at http://192.16
 | LEG Grid | leg-grid | Grid import/export energy and value flows |
 | LEG House 1-5 | leg-house-{1-5} | Per-house energy and value flows |
 
-### 14.3 Dashboard Panels
+### 13.3 Dashboard Panels
 
 **Community Dashboard:**
 - Energy Flow (kWh) - Total consumption (negative), total production
@@ -450,7 +367,7 @@ Energy data is visualized through Grafana dashboards accessible at http://192.16
 - Energy Flow (kWh) - Consumption (negative), production, net flow
 - Value Flow (ct) - Consumption cost (negative), PV delivery credit
 
-### 14.4 Grafana Access
+### 13.4 Grafana Access
 
 | Parameter | Value |
 |-----------|-------|
@@ -460,9 +377,9 @@ Energy data is visualized through Grafana dashboards accessible at http://192.16
 
 ---
 
-## 15. Systemd Services
+## 14. Systemd Services
 
-### 15.1 Service Overview
+### 14.1 Service Overview
 
 All components run as systemd services with auto-restart on failure.
 
@@ -473,7 +390,7 @@ All components run as systemd services with auto-restart on failure.
 | leg-invoicing-ui | Tariff management UI | /root/LEG-Software/leg-invoicing-ui |
 | leg-simulator | Energy visualization | /root/LEG-Software/leg-simulator |
 
-### 15.2 Service Management
+### 14.2 Service Management
 
 ```bash
 # Check all services
@@ -489,7 +406,7 @@ journalctl -u leg-collector -f
 systemctl enable leg-mqtt-simulator leg-collector leg-invoicing-ui leg-simulator
 ```
 
-### 15.3 Service Files
+### 14.3 Service Files
 
 Location: `/etc/systemd/system/`
 
@@ -510,11 +427,11 @@ RestartSec=5
 WantedBy=multi-user.target
 ```
 
-### 15.4 Data Collection Interval
+### 14.4 Data Collection Interval
 
 The collector aggregates MQTT messages and stores to InfluxDB every **60 seconds**.
 
-### 12.3.9 Surplus Edge Case: Capped House Price with Adjusted PV Tariff
+### 14.5 Surplus Edge Case: Capped House Price with Adjusted PV Tariff
 
 In surplus periods (E > I), the standard break-even formula may yield a house consumption price exceeding the grid import price, which is economically undesirable. In this case, we cap the house price and instead adjust the PV tariff to achieve break-even.
 
@@ -618,7 +535,7 @@ Given: E = 100 kWh, I = 20 kWh, p_grid_con = 30 ct/kWh, p_grid_del = 6 ct/kWh, p
 
 ---
 
-## 16. Layman Summary: How House Tariffs Work
+## 15. Layman Summary: How House Tariffs Work
 
 ### The Community Energy Market
 

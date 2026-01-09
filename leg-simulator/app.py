@@ -343,11 +343,11 @@ def update_graph(price_grid_del, price_grid_con, price_pv_del, price_house_con, 
             html.Span("No house imports (I=0) - using default price", style={"color": "#7f8c8d"}),
         ]
     elif E_total == 0:
-        mode = "Grid pass-through"
         breakeven_content = [
             html.Strong("Break-Even Optimization"),
             html.Br(),
-            html.Span(f"E = {E_total:.1f} kWh | I = {I_total:.1f} kWh | Mode: {mode}"),
+            html.Span(f"Exports = {E_total:.1f} kWh | Imports = {I_total:.1f} kWh | Mode: "),
+            html.Span("Grid pass-through", style={"color": "#d95f02", "fontWeight": "bold"}),
             html.Br(),
             html.Span(f"p_con = {optimal_p_con:.2f} ct/kWh", style={"fontWeight": "bold", "color": "#2980b9", "fontSize": "14px"}),
             html.Span(" (= grid price)", style={"color": "#7f8c8d"}),
@@ -357,7 +357,8 @@ def update_graph(price_grid_del, price_grid_con, price_pv_del, price_house_con, 
         breakeven_content = [
             html.Strong("Break-Even Optimization"),
             html.Br(),
-            html.Span(f"E = {E_total:.1f} kWh | I = {I_total:.1f} kWh | Mode: {mode}"),
+            html.Span(f"Exports = {E_total:.1f} kWh | Imports = {I_total:.1f} kWh | Mode: "),
+            html.Span(mode, style={"color": "#1b9e77", "fontWeight": "bold"}),
             html.Br(),
             html.Span(f"p_con = ", style={"fontWeight": "bold"}),
             html.Span(f"{optimal_p_con:.2f} ct/kWh", style={"fontWeight": "bold", "color": "#2980b9", "fontSize": "14px"}),
