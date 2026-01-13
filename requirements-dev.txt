@@ -1,0 +1,15 @@
+# Core dependencies (from all subprojects)
+dash>=2.15
+plotly>=5.18
+Flask>=3.0.0
+influxdb-client>=1.40.0
+paho-mqtt>=2.0.0
+PyYAML>=6.0
+schedule>=1.2
+python-dateutil
+
+# Development tools
+pytest>=7.4.0
+pytest-cov>=4.1.0
+ruff>=0.1.0
+mypy>=1.5.0
