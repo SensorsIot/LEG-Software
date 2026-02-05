@@ -1,3 +1,6 @@
+.claude/*
+!.claude/skills/
+!.claude/commands/
 # Python
 .venv/
 venv/
@@ -24,7 +27,6 @@ config.yaml
 !config.example.yaml
 
 # AI Agents
-.claude/
 CLAUDE.md
 agents.md
 .cursor/
@@ -55,3 +57,12 @@ Thumbs.db
 leg-mqtt-simulator/state.json
 leg-mqtt-simulator/.venv/
 secrets.txt
+
+
+# SSH keys - NEVER commit
+id_rsa*
+id_ed25519*
+id_ecdsa*
+id_dsa*
+*.ppk
+.ssh/
